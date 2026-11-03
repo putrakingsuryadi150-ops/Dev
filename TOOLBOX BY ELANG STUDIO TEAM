@@ -1,0 +1,638 @@
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
+local CoreGui            = game:GetService("CoreGui")
+local Players            = game:GetService("Players")
+local Workspace          = game:GetService("Workspace")
+local UserInputService   = game:GetService("UserInputService")
+local HttpService        = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local InsertService      = game:GetService("InsertService")
+local TweenService       = game:GetService("TweenService")
+local RunService         = game:GetService("RunService")
+local ContentProvider     = game:GetService("ContentProvider")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+pcall(function()
+	local old = CoreGui:FindFirstChild("ToolboxByRizaUI")
+	if old then old:Destroy() end
+end)
+
+pcall(function()
+	local old = playerGui:FindFirstChild("ToolboxByRizaUI")
+	if old then old:Destroy() end
+end)
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ToolboxByELANGUI"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 999999
+
+local parentSuccess = pcall(function()
+	screenGui.Parent = CoreGui
+end)
+
+if not parentSuccess then
+	screenGui.Parent = playerGui
+end
+
+local THEME = {
+	BG_DARK        = Color3.fromRGB(15, 18, 24),
+	BG_CARD        = Color3.fromRGB(22, 27, 36),
+	BG_ELEVATED    = Color3.fromRGB(28, 34, 46),
+
+	STROKE         = Color3.fromRGB(42, 51, 68),
+	STROKE_FOCUS   = Color3.fromRGB(0, 180, 255),
+
+	ACCENT_PRIMARY = Color3.fromRGB(65, 135, 255),
+	ACCENT_CYAN    = Color3.fromRGB(0, 210, 255),
+
+	TEXT_MAIN      = Color3.fromRGB(240, 244, 255),
+	TEXT_MUTED     = Color3.fromRGB(130, 142, 165),
+
+	SUCCESS        = Color3.fromRGB(80, 200, 120),
+	DANGER         = Color3.fromRGB(255, 90, 90),
+
+	COPY           = Color3.fromRGB(120, 90, 235),
+	THUMB_BG       = Color3.fromRGB(10, 13, 18),
+
+	LOGO_ID        = "rbxassetid://96636418452002",
+	SEARCH_ICON_ID = "rbxassetid://118685771787843",
+
+	DRAG_ICON      = "rbxassetid://5172066892",
+	CLOSE_ICON     = "rbxassetid://10152135063",
+}
+
+local TWEEN_MICRO = TweenInfo.new(0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+local TWEEN_SMOOTH = TweenInfo.new(0.30, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local TWEEN_SETTLE = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local TWEEN_WINDOW = TweenInfo.new(0.38, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+local TWEEN_FADE = TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+local MAIN_SIZE = Vector2.new(455, 390)
+
+local function uiCorner(parent, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius or 8)
+	c.Parent = parent
+	return c
+end
+
+local function imageButton(parent, name, image, size, position)
+	local b = Instance.new("ImageButton")
+	b.Name = name
+	b.Size = size
+	b.Position = position
+	b.BackgroundTransparency = 1
+	b.BorderSizePixel = 0
+	b.AutoButtonColor = false
+	b.Image = image
+	b.ScaleType = Enum.ScaleType.Fit
+	b.Parent = parent
+	return b
+end
+
+local function safeText(value, fallback)
+	if value == nil then return fallback or "" end
+	return tostring(value)
+end
+
+local loadingRoot = Instance.new("Frame")
+loadingRoot.Name = "LoadingRoot"
+loadingRoot.Size = UDim2.fromScale(1, 1)
+loadingRoot.Position = UDim2.fromScale(0, 0)
+loadingRoot.BackgroundTransparency = 1
+loadingRoot.ZIndex = 10000
+loadingRoot.Parent = screenGui
+
+local background = Instance.new("Frame")
+background.Size = UDim2.fromScale(1, 1)
+background.Position = UDim2.fromScale(0, 0)
+background.BackgroundColor3 = Color3.fromRGB(5, 7, 12)
+background.BorderSizePixel = 0
+background.ZIndex = 10000
+background.Parent = loadingRoot
+
+local gradient = Instance.new("UIGradient")
+gradient.Rotation = 35
+gradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 8, 18)),
+	ColorSequenceKeypoint.new(0.25, Color3.fromRGB(12, 8, 28)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(5, 15, 25)),
+	ColorSequenceKeypoint.new(0.75, Color3.fromRGB(18, 7, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 8, 18))
+})
+gradient.Parent = background
+
+local function createGlow(position, size, color, transparency)
+	local glow = Instance.new("Frame")
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = position
+	glow.Size = size
+	glow.BackgroundColor3 = color
+	glow.BackgroundTransparency = transparency
+	glow.BorderSizePixel = 0
+	glow.ZIndex = 10000
+	glow.Parent = background
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = glow
+
+	return glow
+end
+
+local glowBlue = createGlow(
+	UDim2.fromScale(0.15, 0.25),
+	UDim2.fromScale(0.45, 0.45),
+	Color3.fromRGB(0, 100, 255),
+	0.94
+)
+
+local glowPurple = createGlow(
+	UDim2.fromScale(0.85, 0.35),
+	UDim2.fromScale(0.5, 0.5),
+	Color3.fromRGB(150, 0, 255),
+	0.94
+)
+
+local glowCyan = createGlow(
+	UDim2.fromScale(0.5, 0.85),
+	UDim2.fromScale(0.6, 0.45),
+	Color3.fromRGB(0, 220, 255),
+	0.96
+)
+
+local backgroundAnimAlive = true
+
+task.spawn(function()
+	while loadingRoot.Parent and backgroundAnimAlive do
+
+		TweenService:Create(glowBlue, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Position = UDim2.fromScale(0.25, 0.35),
+			Size = UDim2.fromScale(0.55, 0.55)
+		}):Play()
+
+		TweenService:Create(glowPurple, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Position = UDim2.fromScale(0.72, 0.25),
+			Size = UDim2.fromScale(0.6, 0.6)
+		}):Play()
+
+		TweenService:Create(glowCyan, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Position = UDim2.fromScale(0.45, 0.75),
+			Size = UDim2.fromScale(0.5, 0.5)
+		}):Play()
+
+		task.wait(4)
+
+		if not (loadingRoot.Parent and backgroundAnimAlive) then break end
+
+		TweenService:Create(glowBlue, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Position = UDim2.fromScale(0.1, 0.2),
+			Size = UDim2.fromScale(0.4, 0.4)
+		}):Play()
+
+		TweenService:Create(glowPurple, TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			Position = UDim2.fromScale(0.9, 0.45),
+			Size = UDim2.fromScale(0.45, 0.45)
+		}):Play()
+
+		task.wait(4)
+	end
+end)
+
+task.spawn(function()
+	local offset = 0
+
+	while loadingRoot.Parent and backgroundAnimAlive do
+		offset += 0.0018
+		if offset > 1 then offset = -1 end
+		gradient.Offset = Vector2.new(offset, 0)
+		task.wait()
+	end
+end)
+
+local particles = {}
+
+for i = 1, 35 do
+	local dot = Instance.new("Frame")
+	dot.Name = "Particle"
+	dot.Size = UDim2.fromOffset(math.random(1, 3), math.random(1, 3))
+	dot.Position = UDim2.fromScale(math.random(), math.random())
+
+	dot.BackgroundColor3 = ({
+		Color3.fromRGB(0, 170, 255),
+		Color3.fromRGB(120, 70, 255),
+		Color3.fromRGB(0, 255, 220),
+		Color3.fromRGB(255, 70, 220)
+	})[math.random(1, 4)]
+
+	dot.BackgroundTransparency = math.random(35, 75) / 100
+	dot.BorderSizePixel = 0
+	dot.ZIndex = 10000
+	dot.Parent = background
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = dot
+
+	table.insert(particles, dot)
+end
+
+task.spawn(function()
+	while loadingRoot.Parent and backgroundAnimAlive do
+
+		for _, dot in ipairs(particles) do
+			if dot.Parent then
+				local oldPos = dot.Position
+
+				TweenService:Create(dot, TweenInfo.new(
+					math.random(25, 50) / 10,
+					Enum.EasingStyle.Sine,
+					Enum.EasingDirection.InOut
+				), {
+					Position = UDim2.fromScale(
+						math.clamp(oldPos.X.Scale + math.random(-80, 80) / 1000, 0, 1),
+						math.clamp(oldPos.Y.Scale + math.random(-80, 80) / 1000, 0, 1)
+					),
+					BackgroundTransparency = math.random(20, 80) / 100
+				}):Play()
+			end
+		end
+
+		task.wait(2)
+	end
+end)
+
+local center = Instance.new("Frame")
+center.AnchorPoint = Vector2.new(0.5, 0.5)
+center.Position = UDim2.fromScale(0.5, 0.5)
+center.Size = UDim2.fromScale(0.72, 0.42)
+center.BackgroundTransparency = 1
+center.ZIndex = 10001
+center.Parent = loadingRoot
+
+local smallText = Instance.new("TextLabel")
+smallText.AnchorPoint = Vector2.new(0.5, 0.5)
+smallText.Position = UDim2.fromScale(0.5, 0.12)
+smallText.Size = UDim2.fromScale(0.8, 0.08)
+smallText.BackgroundTransparency = 1
+smallText.Font = Enum.Font.GothamMedium
+smallText.Text = ""
+smallText.TextSize = 13
+smallText.TextColor3 = Color3.fromRGB(130, 150, 180)
+smallText.TextTransparency = 1
+smallText.ZIndex = 10001
+smallText.Parent = center
+
+local title = Instance.new("TextLabel")
+title.AnchorPoint = Vector2.new(0.5, 0.5)
+title.Position = UDim2.fromScale(0.5, 0.38)
+title.Size = UDim2.fromScale(0.9, 0.25)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.Fantasy
+title.Text = "TOOLBOX"
+title.TextSize = 52
+title.TextColor3 = Color3.fromRGB(245, 248, 255)
+title.TextStrokeTransparency = 1
+title.TextTransparency = 1
+title.TextXAlignment = Enum.TextXAlignment.Center
+title.ZIndex = 10001
+title.Parent = center
+
+local titleGradient = Instance.new("UIGradient")
+titleGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+	ColorSequenceKeypoint.new(0.25, Color3.fromRGB(80, 90, 255)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 50, 255)),
+	ColorSequenceKeypoint.new(0.75, Color3.fromRGB(255, 50, 180)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 220, 255))
+})
+titleGradient.Offset = Vector2.new(-1, 0)
+titleGradient.Parent = title
+
+local byText = Instance.new("TextLabel")
+byText.AnchorPoint = Vector2.new(0.5, 0.5)
+byText.Position = UDim2.fromScale(0.5, 0.61)
+byText.Size = UDim2.fromScale(0.8, 0.14)
+byText.BackgroundTransparency = 1
+byText.Font = Enum.Font.Cartoon
+byText.Text = "BY ELANG STUDIO"
+byText.TextSize = 25
+byText.TextColor3 = Color3.fromRGB(80, 210, 255)
+byText.TextTransparency = 1
+byText.TextXAlignment = Enum.TextXAlignment.Center
+byText.ZIndex = 10001
+byText.Parent = center
+
+local byGradient = Instance.new("UIGradient")
+byGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 220, 255)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(130, 70, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 60, 190))
+})
+byGradient.Offset = Vector2.new(-1, 0)
+byGradient.Parent = byText
+
+local function typeWriter(label, speed)
+	label.TextTransparency = 0
+	local original = label.Text
+	label.Text = ""
+
+	for i = 1, #original do
+		if not label.Parent then return end
+		label.Text = string.sub(original, 1, i)
+		label.Position = UDim2.fromScale(0.5, label == title and 0.38 or 0.61)
+		task.wait(speed)
+	end
+
+	label.Text = original
+end
+
+local status = Instance.new("TextLabel")
+status.AnchorPoint = Vector2.new(0.5, 0.5)
+status.Position = UDim2.fromScale(0.5, 0.77)
+status.Size = UDim2.fromScale(0.8, 0.08)
+status.BackgroundTransparency = 1
+status.Font = Enum.Font.Gotham
+status.Text = ""
+status.TextSize = 11
+status.TextColor3 = Color3.fromRGB(110, 125, 150)
+status.TextTransparency = 1
+status.ZIndex = 10001
+status.Parent = center
+
+local line = Instance.new("Frame")
+line.AnchorPoint = Vector2.new(0.5, 0.5)
+line.Position = UDim2.fromScale(0.5, 0.87)
+line.Size = UDim2.fromScale(0.35, 0.008)
+line.BackgroundColor3 = Color3.fromRGB(30, 35, 50)
+line.BorderSizePixel = 0
+line.ZIndex = 10001
+line.Parent = center
+
+local lineCorner = Instance.new("UICorner")
+lineCorner.CornerRadius = UDim.new(1, 0)
+lineCorner.Parent = line
+
+local lineFill = Instance.new("Frame")
+lineFill.Size = UDim2.fromScale(0, 1)
+lineFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+lineFill.BorderSizePixel = 0
+lineFill.ZIndex = 10001
+lineFill.Parent = line
+
+local lineFillCorner = Instance.new("UICorner")
+lineFillCorner.CornerRadius = UDim.new(1, 0)
+lineFillCorner.Parent = lineFill
+
+local lineGradient = Instance.new("UIGradient")
+lineGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 180, 255)),
+	ColorSequenceKeypoint.new(0.35, Color3.fromRGB(90, 70, 255)),
+	ColorSequenceKeypoint.new(0.65, Color3.fromRGB(220, 40, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 180))
+})
+lineGradient.Parent = lineFill
+
+local appIcon = Instance.new("Frame")
+appIcon.Name = "AppIconBadge"
+appIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+appIcon.Position = UDim2.fromScale(0.5, 0.5)
+appIcon.Size = UDim2.fromOffset(0, 0)
+appIcon.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
+appIcon.BackgroundTransparency = 1
+appIcon.BorderSizePixel = 0
+appIcon.ZIndex = 10002
+appIcon.ClipsDescendants = true
+appIcon.Visible = false
+appIcon.Parent = loadingRoot
+
+local appIconCorner = Instance.new("UICorner")
+appIconCorner.CornerRadius = UDim.new(1, 0)
+appIconCorner.Parent = appIcon
+
+local appIconStroke = Instance.new("UIStroke")
+appIconStroke.Color = Color3.fromRGB(0, 200, 255)
+appIconStroke.Thickness = 2
+appIconStroke.Transparency = 1
+appIconStroke.Parent = appIcon
+
+local appIconGradient = Instance.new("UIGradient")
+appIconGradient.Rotation = 45
+appIconGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 130, 255)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(130, 60, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 220, 255))
+})
+appIconGradient.Parent = appIcon
+
+local appIconGlyph = Instance.new("ImageLabel")
+appIconGlyph.Name = "ToolboxIcon"
+appIconGlyph.AnchorPoint = Vector2.new(0.5, 0.5)
+appIconGlyph.Position = UDim2.fromScale(0.5, 0.5)
+appIconGlyph.Size = UDim2.fromScale(0.72, 0.72)
+appIconGlyph.BackgroundTransparency = 1
+appIconGlyph.BorderSizePixel = 0
+appIconGlyph.Image = "rbxassetid://129306263749313"
+appIconGlyph.ImageColor3 = Color3.fromRGB(255, 255, 255)
+appIconGlyph.ImageTransparency = 1
+appIconGlyph.ScaleType = Enum.ScaleType.Fit
+appIconGlyph.ZIndex = 10003
+appIconGlyph.Parent = appIcon
+
+task.spawn(function()
+    pcall(function()
+        ContentProvider:PreloadAsync({appIconGlyph})
+    end)
+end)
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainHubFrame"
+mainFrame.Size = UDim2.fromOffset(MAIN_SIZE.X, MAIN_SIZE.Y)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.Position = UDim2.fromScale(0.5, 0.5)
+mainFrame.BackgroundColor3 = THEME.BG_DARK
+mainFrame.BackgroundTransparency = 1
+mainFrame.Visible = false
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Active = true
+mainFrame.ZIndex = 100
+mainFrame.Parent = screenGui
+
+uiCorner(mainFrame, 16)
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = THEME.STROKE
+mainStroke.Thickness = 1.5
+mainStroke.Transparency = 1
+mainStroke.Parent = mainFrame
+
+local topBar = Instance.new("Frame")
+topBar.Name = "FixedTopBar"
+topBar.Size = UDim2.new(1, -22, 0, 40)
+topBar.Position = UDim2.fromOffset(11, 7)
+topBar.BackgroundTransparency = 1
+topBar.ZIndex = 120
+topBar.Parent = mainFrame
+
+local headerLogo = Instance.new("ImageLabel")
+headerLogo.Name = "ToolboxHeaderIcon"
+headerLogo.Size = UDim2.fromOffset(18, 18)
+headerLogo.AnchorPoint = Vector2.new(0, 0.5)
+headerLogo.Position = UDim2.new(0, 6, 0.5, 0)
+headerLogo.BackgroundTransparency = 1
+headerLogo.Image = THEME.LOGO_ID
+headerLogo.ScaleType = Enum.ScaleType.Fit
+headerLogo.ImageTransparency = 1
+headerLogo.ZIndex = 121
+headerLogo.Parent = topBar
+
+local headerTitle = Instance.new("TextLabel")
+headerTitle.Name = "ToolboxTitle"
+headerTitle.Size = UDim2.new(1, -112, 1, 0)
+headerTitle.Position = UDim2.fromOffset(29, 0)
+headerTitle.BackgroundTransparency = 1
+headerTitle.Font = Enum.Font.GothamBold
+headerTitle.Text = "TOOLBOX •  BY ELANG STUDIO"
+headerTitle.TextColor3 = THEME.TEXT_MAIN
+headerTitle.TextSize = 10
+headerTitle.TextTransparency = 1
+headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+headerTitle.TextYAlignment = Enum.TextYAlignment.Center
+headerTitle.ZIndex = 121
+headerTitle.Parent = topBar
+
+local controlsWrap = Instance.new("Frame")
+controlsWrap.Name = "WindowControlsCapsule"
+controlsWrap.Size = UDim2.fromOffset(80, 27)
+controlsWrap.AnchorPoint = Vector2.new(1, 0.5)
+controlsWrap.Position = UDim2.new(1, -6, 0.5, 0)
+controlsWrap.BackgroundColor3 = THEME.BG_ELEVATED
+controlsWrap.BackgroundTransparency = 1
+controlsWrap.BorderSizePixel = 0
+controlsWrap.ZIndex = 121
+controlsWrap.Parent = topBar
+
+uiCorner(controlsWrap, 15)
+
+local controlsStroke = Instance.new("UIStroke")
+controlsStroke.Color = THEME.STROKE
+controlsStroke.Thickness = 1
+controlsStroke.Transparency = 1
+controlsStroke.Parent = controlsWrap
+
+local controlsLayout = Instance.new("UIListLayout")
+controlsLayout.FillDirection = Enum.FillDirection.Horizontal
+controlsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+controlsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+controlsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+controlsLayout.Padding = UDim.new(0, 11)
+controlsLayout.Parent = controlsWrap
+
+local dragButton = imageButton(controlsWrap, "DragButton", THEME.DRAG_ICON, UDim2.fromOffset(19, 19), UDim2.fromOffset(0, 0))
+dragButton.LayoutOrder = 1
+dragButton.ZIndex = 122
+dragButton.ImageTransparency = 1
+
+local closeButton = imageButton(controlsWrap, "CloseButton", THEME.CLOSE_ICON, UDim2.fromOffset(19, 19), UDim2.fromOffset(0, 0))
+closeButton.LayoutOrder = 2
+closeButton.ZIndex = 122
+closeButton.ImageTransparency = 1
+
+local floatBtn = Instance.new("ImageButton")
+floatBtn.Name = "FloatButton"
+floatBtn.Size = UDim2.fromOffset(0, 0)
+floatBtn.Position = UDim2.new(0, 20, 0.5, -23)
+floatBtn.BackgroundColor3 = THEME.BG_DARK
+floatBtn.BackgroundTransparency = 1
+floatBtn.BorderSizePixel = 0
+floatBtn.AutoButtonColor = false
+floatBtn.Image = ""
+floatBtn.Visible = false
+floatBtn.ZIndex = 200
+floatBtn.Parent = screenGui
+
+uiCorner(floatBtn, 23)
+
+local floatStroke = Instance.new("UIStroke")
+floatStroke.Color = THEME.ACCENT_CYAN
+floatStroke.Thickness = 2
+floatStroke.Parent = floatBtn
+
+local floatLogo = Instance.new("ImageLabel")
+floatLogo.Name = "ToolboxIcon"
+floatLogo.Size = UDim2.fromOffset(0, 0)
+floatLogo.AnchorPoint = Vector2.new(0.5, 0.5)
+floatLogo.Position = UDim2.fromScale(0.5, 0.5)
+floatLogo.BackgroundTransparency = 1
+floatLogo.Image = THEME.LOGO_ID
+floatLogo.ImageTransparency = 1
+floatLogo.ScaleType = Enum.ScaleType.Fit
+floatLogo.ZIndex = 201
+floatLogo.Parent = floatBtn
+
+local bodyViewport = Instance.new("Frame")
+bodyViewport.Name = "BodyViewport"
+bodyViewport.Size = UDim2.new(1, -14, 1, -55)
+bodyViewport.Position = UDim2.fromOffset(7, 51)
+bodyViewport.BackgroundTransparency = 1
+bodyViewport.ClipsDescendants = true
+bodyViewport.ZIndex = 105
+bodyViewport.Parent = mainFrame
+
+local mainBody = Instance.new("ScrollingFrame")
+mainBody.Name = "MainBody"
+mainBody.Size = UDim2.fromScale(1, 1)
+mainBody.Position = UDim2.fromOffset(0, 0)
+mainBody.BackgroundTransparency = 1
+mainBody.BorderSizePixel = 0
+mainBody.CanvasSize = UDim2.fromOffset(0, 0)
+mainBody.AutomaticCanvasSize = Enum.AutomaticSize.Y
+mainBody.ScrollBarThickness = 4
+mainBody.ScrollBarImageColor3 = THEME.STROKE
+mainBody.ScrollBarImageTransparency = 0.05
+mainBody.ScrollingDirection = Enum.ScrollingDirection.Y
+mainBody.ZIndex = 106
+mainBody.Parent = bodyViewport
+
+local bodyPadding = Instance.new("UIPadding")
+bodyPadding.PaddingTop = UDim.new(0, 8)
+bodyPadding.PaddingBottom = UDim.new(0, 18)
+bodyPadding.PaddingLeft = UDim.new(0, 10)
+bodyPadding.PaddingRight = UDim.new(0, 10)
+bodyPadding.Parent = mainBody
+
+local bodyLayout = Instance.new("UIListLayout")
+bodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+bodyLayout.Padding = UDim.new(0, 9)
+bodyLayout.Parent = mainBody
+
+local assetIdCapsule = Instance.new("Frame")
+assetIdCapsule.Name = "AssetIdCapsule"
+assetIdCapsule.Size = UDim2.new(1, 0, 0, 40)
+assetIdCapsule.BackgroundColor3 = THEME.BG_ELEVATED
+assetIdCapsule.BorderSizePixel = 0
+assetIdCapsule.LayoutOrder = 1
+assetIdCapsule.Parent = mainBody
+
+uiCorner(assetIdCapsule, 10)
+
+local assetIdStroke = Instance.new("UIStroke")
+assetIdStroke.Color = THEME.STROKE
+assetIdStroke.Thickness = 1
+assetIdStroke.Parent = assetIdCapsule
+
+local assetIdBox = Instance.new("TextBox")
+assetIdBox.Name = "AssetIdBox"
+assetIdBox.Size = UDim2.new(1, -108, 1, 0)
+assetIdBox.Position = UDim2.fromOffset(12, 0)
+assetIdBox.BackgroundTransparency = 1
+assetIdBox.Font = Enum.Font.Gotham
+asset
